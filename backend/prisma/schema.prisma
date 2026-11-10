@@ -1,0 +1,196 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+model User {
+  id           String          @id @default(cuid())
+  email        String          @unique
+  name         String
+  role         Role            @default(CUSTOMER)
+  passwordHash String          @map("password_hash")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  addresses    Address[]
+  orders       Order[]
+  reviews      ProductReview[]
+  wishlist     Wishlist?
+  cart         Cart?
+  @@map("users")
+}
+
+model Address {
+  userId     String @map("user_id")
+  label      String
+  line1      String @map("line1")
+  city       String
+  state      String
+  postalCode String @map("postal_code")
+  country    String @default("US")
+  id         String @id @default(cuid())
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("addresses")
+}
+
+model Category {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  slug     String    @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  products Product[]
+  @@map("categories")
+}
+
+model Product {
+  id               String          @id @default(cuid())
+  name             String
+  slug             String          @unique
+  description      String
+  brand            String
+  price            Decimal         @db.Decimal(10, 2)
+  discountPercent  Int             @default(0) @map("discount_percent")
+  stockQuantity    Int             @default(0) @map("stock_quantity")
+  imageUrl         String          @map("image_url")
+  rating           Float           @default(0)
+  reviewCount      Int             @default(0) @map("review_count")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  categoryId       String          @map("category_id")
+  category         Category        @relation(fields: [categoryId], references: [id])
+  reviews          ProductReview[]
+  orderItems       OrderItem[]
+  wishlistItems    WishlistItem[]
+  cartItems        CartItem[]
+  images           ProductImage[]
+  @@index([categoryId])
+  @@index([createdAt])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String  @map("product_id")
+  imageUrl  String  @map("image_url")
+  altText   String? @map("alt_text")
+  sortOrder Int     @default(0) @map("sort_order")
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  @@index([productId])
+  @@map("product_images")
+}
+
+model Wishlist {
+  id        String         @id @default(cuid())
+  userId    String         @unique @map("user_id")
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     WishlistItem[]
+  @@map("wishlists")
+}
+
+model WishlistItem {
+  id         String   @id @default(cuid())
+  wishlistId String @map("wishlist_id")
+  productId  String @map("product_id")
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  @@unique([wishlistId, productId])
+  @@map("wishlist_items")
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String     @unique @map("user_id")
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  @@map("carts")
+}
+
+model CartItem {
+  id        String  @id @default(cuid())
+  cartId    String @map("cart_id")
+  productId String @map("product_id")
+  quantity  Int
+  cart      Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
+model ProductReview {
+  id        String   @id @default(cuid())
+  rating    Int
+  body      String
+  productId String @map("product_id")
+  userId    String @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([productId, userId])
+  @@map("reviews")
+}
+
+model Order {
+  id        String      @id @default(cuid())
+  status    OrderStatus @default(PENDING)
+  subtotal  Decimal     @db.Decimal(10, 2)
+  shipping  Decimal     @db.Decimal(10, 2)
+  total     Decimal     @db.Decimal(10, 2)
+  userId    String      @map("user_id")
+  createdAt DateTime    @default(now()) @map("created_at")
+  user     User        @relation(fields: [userId], references: [id])
+  items    OrderItem[]
+  payments Payment[]
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  orderId   String @map("order_id")
+  productId String @map("product_id")
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+  @@map("order_items")
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  provider        String
+  providerOrderId String?  @unique @map("provider_order_id")
+  providerPaymentId String? @unique @map("provider_payment_id")
+  amount          Decimal  @db.Decimal(10, 2)
+  status          String
+  orderId         String   @map("order_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  order           Order    @relation(fields: [orderId], references: [id])
+  @@map("payments")
+}
+
+model Coupon {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  percentOff Int @map("percent_off")
+  active     Boolean  @default(true)
+  expiresAt  DateTime? @map("expires_at")
+  @@map("coupons")
+}
