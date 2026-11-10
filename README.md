@@ -81,7 +81,19 @@ The backend uses a reusable `pg` connection pool for health checks and schema in
 
 ## Production
 
-Deploy `frontend` to Vercel with `VITE_API_URL` pointing to the Render API. Deploy `backend` to Render with `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`, and payment credentials configured as secrets. Run Prisma generation and migrations during the backend build/release phase. Enable HTTPS and restrict CORS to the Vercel origin.
+Deploy `frontend` to Vercel with `VITE_API_URL` pointing to the Render API. Deploy `backend` to Render with `DATABASE_URL`, `JWT_SECRET`, `FRONTEND_URL`, and payment credentials configured as secrets. Run Prisma generation during the build phase and `npm run db:migrate:deploy` as the Render release command before starting the service. Enable HTTPS and restrict CORS to the frontend origin.
+
+The repository now includes the initial Prisma migration at `backend/prisma/migrations/20261110170000_initial_schema`. It creates the schema represented by `backend/prisma/schema.prisma` without resetting or dropping existing data. The deployed database must be the intended empty/new database, or an operator must reconcile an already-initialized database before marking this migration applied; do not run `prisma migrate reset`.
+
+Render commands:
+
+```text
+Build:  npm install && npx prisma generate
+Release: npm run db:migrate:deploy
+Start:  npm start
+```
+
+After the release command completes, verify `https://your-backend-service.onrender.com/api/health/db` and then `https://your-backend-service.onrender.com/api/products`.
 
 For the current Netlify deployment, configure the site environment variable `VITE_API_URL` to the deployed backend URL including `/api` (for example, `https://shopsphere-api.onrender.com/api`) before redeploying. Without this variable, production requests use the same-origin `/api` path and cannot reach a separately hosted backend. The frontend keeps `http://localhost:4000/api` only for Vite development mode.
 
