@@ -3,10 +3,11 @@ import pg from 'pg';
 
 const { Pool } = pg;
 
+const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
 const required = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER'];
 const missing = required.filter((key) => !process.env[key]);
-if (missing.length) {
-  throw new Error(`Missing database configuration: ${missing.join(', ')}`);
+if (!hasDatabaseUrl && missing.length) {
+  throw new Error(`Missing database configuration: set DATABASE_URL or provide ${missing.join(', ')}`);
 }
 
 export const databaseUrl = process.env.DATABASE_URL || [
@@ -20,18 +21,21 @@ if (!process.env.DATABASE_URL) {
 }
 
 export const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: String(process.env.DB_PASSWORD ?? ''),
+  ...(hasDatabaseUrl ? { connectionString: databaseUrl } : {
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT),
+    database: process.env.DB_NAME,
+    user: process.env.DB_USER,
+    password: String(process.env.DB_PASSWORD ?? '')
+  }),
   max: 10,
   idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 5_000
+  connectionTimeoutMillis: 5_000,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined
 });
 
 export function ensureDatabasePassword() {
-  if (!process.env.DB_PASSWORD) {
+  if (!hasDatabaseUrl && !process.env.DB_PASSWORD) {
     throw new Error('DB_PASSWORD is empty; fill it in backend/.env before connecting to PostgreSQL');
   }
 }
