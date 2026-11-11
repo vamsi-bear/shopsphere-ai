@@ -93,7 +93,7 @@ Release: npm run db:migrate:deploy
 Start:  npm start
 ```
 
-After the release command completes, verify `https://your-backend-service.onrender.com/api/health/db` and then `https://your-backend-service.onrender.com/api/products`.
+`npm start` also runs `prisma migrate deploy` before starting Express, so deployments that do not expose a separate release-command field still apply checked-in migrations. It never resets or drops the database. After startup, verify `https://your-backend-service.onrender.com/api/health/db` and then `https://your-backend-service.onrender.com/api/products`.
 
 For the current Netlify deployment, configure the site environment variable `VITE_API_URL` to the deployed backend URL including `/api` (for example, `https://shopsphere-api.onrender.com/api`) before redeploying. Without this variable, production requests use the same-origin `/api` path and cannot reach a separately hosted backend. The frontend keeps `http://localhost:4000/api` only for Vite development mode.
 
